@@ -19,7 +19,7 @@ Herramienta de configuración de equipos linux para el uso de aplicaciones de ad
 
 * Inicializa los perfiles de usuario de los navegadores y los almacenes de certificados si no existen.
 
-* Instala un certificado personal en dichos almacenes si se provee.
+* Instala un certificado personal en dichos almacenes si se provee en directorio vacio.
 
 **Configuración de la conexión a través de proxy:**
 
