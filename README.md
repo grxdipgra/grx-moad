@@ -6,7 +6,7 @@ Herramienta de configuración de equipos linux para el uso de aplicaciones de ad
 
 * Open JDK (xenyal - bionic) u Oracle JDK (trusty) para la aplicación autofirma.
 
-* libnss3-tools para el uso de las herramientas certutil y pk12util de importación y exportación de certificados electrónicos a los almacenes de bases de datos de mozilla y chrome.
+* libnss3-tools para el uso de las herramientas **certutil** y **pk12util** de importación y exportación de certificados electrónicos a los almacenes de bases de datos de mozilla y chrome.
 
 * Autofirma para firmado de documentos y acceso a aplicaciones web de administración electrónica.
 
