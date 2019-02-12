@@ -113,13 +113,13 @@ function _CONFIGURA_WGET(){
             echo -en "[\e[0;93maviso\e[0m]"
             echo " Hay que modificar wgetrc detrás de proxy"
             WGETRC_MOD="true"
-            while [ "$PROXY_USER" == ""];do
+            while [ "$PROXY_USER" == "" ];do
               echo "Introduce un usuario para el proxy (usuario@dominio): "
               read PROXY_USER
             done
-            while [ "$PROXY_PASS" == ""];do
+            while [ "$PROXY_PASS" == "" ];do
               echo "Introduce la contraseña para el usuario $PROXY_USER: "
-              read PROXY_PASS
+              read -s PROXY_PASS
             done
             echo "use_proxy = on" >> /etc/wgetrc
             echo "http_proxy = http://195.57.47.66:8080/" >> /etc/wgetrc
@@ -348,7 +348,7 @@ function _PERFIL_FIREFOX(){
 
 function _DESCARGA_CERTIFICADOS_CA(){
   echo "Descargando certificados CA ..."
-  wget --no-check-certificate $URL_CERTIFICADOS_CA -O /tmp/CERTIFICADOS_CA.tar.xz
+  wget --no-check-certificate -e use_proxy=no $URL_CERTIFICADOS_CA -O /tmp/CERTIFICADOS_CA.tar.xz
   if [ $? -eq 0 ];then
     echo -en "[\e[0;92mok\e[0m]"
     echo " Certificados CA descargados correctamente."
