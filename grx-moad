@@ -31,7 +31,9 @@ do
 done
 
 if [ -z "$USUARIO" ];then
-    echo "El nombre de usuario es OBLIGATORIO"
+    echo -en "[\e[0;91mfallo\e[0m]"
+    echo " Uso incorrecto."
+    echo "La sintaxis es: $0 -u nombre_usuario [-c] [ruta_certificado_personal] [-p] [password_certificado_personal]"
     exit 1
 fi
 echo -en "[\e[0;94mNombre de usuario:\e[0m]"
@@ -40,7 +42,7 @@ if [ -z "$CERTIFICADO_PERSONAL" ];then
     echo -en "[\e[0;93maviso\e[0m]"
     echo " No se importará ningún certificado personal"
 else
-  echo -en "[\e[0;94mCertificado personal:\e[0m]"
+  echo -en "[\e[0;94mRuta certificado personal:\e[0m]"
   echo " $CERTIFICADO_PERSONAL"
 fi
 
