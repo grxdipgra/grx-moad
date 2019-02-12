@@ -138,11 +138,16 @@ function _CONFIGURA_WGET(){
               echo " Conexión operativa."
             fi
           else
-            echo "Comentando 00proxy"
-            sed -i 's/.*/#&/' $PROXY_APT
-            echo -en "[\e[0;92mok\e[0m]"
-            echo " Se ha comentado 00proxy"
-            WGETRC_MOD="true"
+            if [ -f $PROXY_APT ];then
+              echo "Comentando 00proxy"
+              sed -i 's/.*/#&/' $PROXY_APT
+              echo -en "[\e[0;92mok\e[0m]"
+              echo " Se ha comentado 00proxy"
+              WGETRC_MOD="true"
+            else
+              echo -en "[\e[0;93maviso\e[0m]"
+              echo " No hay ningún proxy apt configurado"
+            fi
           fi
         ;;
         true)
@@ -155,10 +160,12 @@ function _CONFIGURA_WGET(){
           sed -i 's/proxy-password=$PROXY_PASS//g' /etc/wgetrc
           echo -en "[\e[0;92mok\e[0m]"
           echo " Se ha restablecido la configuración de wget"
-          echo "Deshaciendo modificaciones en 00proxy"
-          sed -i 's/#//g' $PROXY_APT
-          echo -en "[\e[0;92mok\e[0m]"
-          echo "Se han deshecho los cambios en 00proxy"
+          if [ -f $PROXY_APT ];then
+            echo "Deshaciendo modificaciones en 00proxy"
+            sed -i 's/#//g' $PROXY_APT
+            echo -en "[\e[0;92mok\e[0m]"
+            echo "Se han deshecho los cambios en 00proxy"
+          fi
         ;;
   esac
 }
@@ -309,7 +316,7 @@ function _PERFIL_FIREFOX(){
   if [ "$VERSION_UBUNTU" == "trusty" -o "$VERSION_UBUNTU" == "xenial" ];then
     firefox -CreateProfile -no-remote "dipgra.default $NUEVO_PERFIL_FIREFOX"
   else
-    su $USUARIO -c "firefox -CreateProfile -no-remote \"dipgra.default $NUEVO_PERFIL_FIREFOX\""
+    su $USUARIO -c "firefox -CreateProfile -no-remote \"dipgra.profile $NUEVO_PERFIL_FIREFOX\""
   fi
   chown -R "$USUARIO.usuarios del dominio" /home/${USUARIO}/.mozilla
   echo "Creando base de datos de certificados para firefox ..."
@@ -328,9 +335,9 @@ function _PERFIL_FIREFOX(){
   echo "StartWithLastProfile=1" >> ${RUTA_FIREFOX}/profiles.ini
   echo "" >> ${RUTA_FIREFOX}/profiles.ini
   echo "[Profile0]" >> ${RUTA_FIREFOX}/profiles.ini
-  echo "Name=default" >> ${RUTA_FIREFOX}/profiles.ini
+  echo "Name=profile" >> ${RUTA_FIREFOX}/profiles.ini
   echo "IsRelative=1" >> ${RUTA_FIREFOX}/profiles.ini
-  echo "Path=dipgra.default" >> ${RUTA_FIREFOX}/profiles.ini
+  echo "Path=dipgra.profile" >> ${RUTA_FIREFOX}/profiles.ini
   echo "Default=1" >> ${RUTA_FIREFOX}/profiles.ini
   echo -en "[\e[0;92mok\e[0m]"
   echo " Se ha creado ${RUTA_FIREFOX}/profiles.ini."
