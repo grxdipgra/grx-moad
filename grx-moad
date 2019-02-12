@@ -314,7 +314,7 @@ function _PERFIL_FIREFOX(){
   echo " No exite perfil de firefox para el usuario ${USUARIO}."
   echo " Creando perfil ..."
   if [ "$VERSION_UBUNTU" == "trusty" -o "$VERSION_UBUNTU" == "xenial" ];then
-    firefox -CreateProfile -no-remote "dipgra.default $NUEVO_PERFIL_FIREFOX"
+    firefox -CreateProfile -no-remote "dipgra.profile $NUEVO_PERFIL_FIREFOX"
   else
     su $USUARIO -c "firefox -CreateProfile -no-remote \"dipgra.profile $NUEVO_PERFIL_FIREFOX\""
   fi
