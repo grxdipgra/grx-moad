@@ -573,7 +573,11 @@ if [ "$VERSION_UBUNTU" == "trusty" ];then
   echo " Se va actualizar el repositorio GrX ..."
   wget http://incidencias.dipgra.es/trusty-rep/pool/main/g/grx-sources/grx-sources_0.7.2016_all.deb -O /tmp/grx-sources_0.7.2016_all.deb
   dpkg -i /tmp/grx-sources_0.7.2016_all.deb
-  apt update
+  apt update > /dev/null 2>&1
+  if [ $? -ne 0 ];then
+    echo -en "[\e[0;91mfallo\e[0m]"
+    echo " Error actualizando repositorios GrX."
+  fi
 fi
 
 ####################### SOFTWARE #################################
@@ -620,7 +624,12 @@ if [ "$JAVA" == "false" -o "$LIBNSS3_TOOLS" == "false" -o "$GOOGLE_CHROME" == "f
     REPOSITORIO="google-chrome-stable"
     _MODIFICA_REPOSITORIO
   fi
-  apt update
+  apt update > /dev/null 2>&1
+  if [ $? -ne 0 ];then
+    echo -en "[\e[0;91mfallo\e[0m]"
+    echo " Error actualizando repositorios."
+  fi
+
 fi
 
 # Instalamos el software faltante si lo hubiera
