@@ -1,19 +1,32 @@
 # grx-moad
+
 Herramienta de configuración de equipos linux para el uso de aplicaciones de administración electrónica.
 
-Chequea la existencia del software:
+**Software necesario:**
 
-Open JDK u Oracle JDK para la instalación de autofirma
+* Open JDK (xenyal - bionic) u Oracle JDK (trusty) para la aplicación autofirma.
 
-libnss3-tools para el uso de las herramientas certutil u pk12util
+* libnss3-tools para el uso de las herramientas certutil y pk12util de importación y exportación de certificados electrónicos a los almacenes de bases de datos de mozilla y chrome.
 
-autofirma para firmado de documentos y acceso con certificado a aplicaciones web
+* Autofirma para firmado de documentos y acceso a aplicaciones web de administración electrónica.
 
-Google chrome
+* Google chrome (si no está instalado).
 
 
-Importa los certificados de CA a los almacenes de Mozilla Firefox Y Google Chrome.
+**Importación de certificados:**
 
-Inicializa perfiles de usuario si no existen.
+* Importa los certificados de CA a los almacenes de Mozilla Firefox y Google Chrome.
 
-Instala certificados personales en dichos almacenes.
+* Inicializa los perfiles de usuario de los navegadores y los almacenes de certificados si no existen.
+
+* Instala un certificado personal en dichos almacenes si se provee.
+
+**Configuración de la conexión a través de proxy:**
+
+Se configura la conexión del equipo para el uso del servidor proxy de Diputación de Granada en caso de que sea necesario. Solicitará credenciales válidas.
+
+Se suministra el paquete **grx-moad.deb** que deberá instalarse en el sistema. Este habilita la ejecución de un comando **grx-moad** que permite ejecutar las tareas indicadas.
+
+**Sintaxis**
+
+*grx-moad -u usuario [-c] [ruta-del-certificado-personal] [-p] [contraseña-del-certificado]
