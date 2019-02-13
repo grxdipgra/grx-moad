@@ -107,7 +107,7 @@ function _COMPRUEBA_INSTALACION(){
 function _CONFIGURA_WGET(){
   if [ -f $PROXY_APT ];then
     echo -en "[\e[0;93maviso\e[0m]"
-    echo " No hay ningún proxy apt configurado"
+    echo " No hay ningún proxy apt configurado."
     echo "Configurando proxy apt."
     touch $PROXY_APT
     chmod 644 $PROXY_APT
