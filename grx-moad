@@ -123,11 +123,11 @@ function _CONFIGURA_WGET(){
             echo " Hay que modificar wgetrc detrás de proxy"
             WGETRC_MOD="true"
             while [ "$PROXY_USER" == "" ];do
-              echo "Introduce un usuario para el proxy (usuario@dominio): "
+              echo -n "Introduce un usuario válido para el proxy (usuario@dominio) y presiona [ENTER]: "
               read PROXY_USER
             done
             while [ "$PROXY_PASS" == "" ];do
-              echo "Introduce la contraseña para el usuario $PROXY_USER: "
+              echo -n "Introduce la contraseña para el usuario $PROXY_USER y presiona [ENTER]: "
               read -s PROXY_PASS
             done
             echo "use_proxy = on" >> /etc/wgetrc
@@ -385,10 +385,10 @@ function _IMPORTA_CERTIFICADOS_CA(){
     certfile=${DIR_CERTIFICADOS_CA}/$certfile
 
     if [ "$PERFIL_FIREFOX" != "" ];then
+      echo "[\e[0;94mImportando certificados CA en el almacén antiguo de Firefox\e[0m]"
       for certDB in $(find ${DIR_BASE_DATOS_FIREFOX}  -name "cert8.db")
       do
         certdir=$(dirname $certDB)'/'
-        echo "Importando certificado de autoridad $certificado en el almacen antiguo de Firefox"
         certutil -A -n "${certname}" -t "CT,C,C" -i ${certfile} -d dbm:${certdir} > /dev/null 2>&1
         if [ $? -ne 0 ];then
           echo -en "[\e[0;91mfallo\e[0m]"
@@ -403,10 +403,10 @@ function _IMPORTA_CERTIFICADOS_CA(){
       echo -en "[\e[0;91mfallo\e[0m]"
       echo " No se pueden importar los certificados. Perfil de mozilla inexistente"
     fi
+    echo "[\e[0;94mImportando certificados CA en el almacén antiguo de Chrome\e[0m]"
     for certDB in $(find ${DIR_BASE_DATOS_CHROME}  -name "cert8.db")
     do
       certdir=$(dirname $certDB)'/'
-      echo "Importando certificado de autoridad $certificado en el almacen antiguo de Chrome."
       certutil -A -n "${certname}" -t "CT,C,C" -i ${certfile} -d dbm:${certdir} > /dev/null 2>&1
       if [ $? -ne 0 ];then
         echo -en "[\e[0;91mfallo\e[0m]"
@@ -419,11 +419,10 @@ function _IMPORTA_CERTIFICADOS_CA(){
     done
 
   ### Para cert9.db (SQL) CHROME
-
+    echo "[\e[0;94mImportando certificados CA en el nuevo almacén de Firefox\e[0m]"
     for certDB in $(find ${DIR_BASE_DATOS_FIREFOX} -name "cert9.db")
     do
       certdir=$(dirname $certDB)'/'
-      echo "Importando certificado de autoridad $certificado en el nuevo almacen de Firefox."
       certutil -A -n "${certname}" -t "CT,C,C" -i ${certfile} -d sql:${certdir} > /dev/null 2>&1
       if [ $? -ne 0 ];then
         echo -en "[\e[0;91mfallo\e[0m]"
@@ -434,10 +433,10 @@ function _IMPORTA_CERTIFICADOS_CA(){
         echo " Importando $certificado al almacén "$certdir"cert9.db"
       fi
     done
+    echo "[\e[0;94mImportando certificados CA en el nuevo almacén de Chrome.\e[0m]"
     for certDB in $(find ${DIR_BASE_DATOS_CHROME} -name "cert9.db")
     do
       certdir=$(dirname $certDB)'/'
-      echo "Importando certificado de autoridad $certificado en el nuevo almacen de Chrome."
       certutil -A -n "${certname}" -t "CT,C,C" -i ${certfile} -d sql:${certdir} > /dev/null 2>&1
       if [ $? -ne 0 ];then
         echo -en "[\e[0;91mfallo\e[0m]"
