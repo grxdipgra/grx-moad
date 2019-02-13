@@ -105,6 +105,15 @@ function _COMPRUEBA_INSTALACION(){
 }
 
 function _CONFIGURA_WGET(){
+  if [ -f $PROXY_APT ];then
+    echo -en "[\e[0;93maviso\e[0m]"
+    echo " No hay ningún proxy apt configurado"
+    echo "Configurando proxy apt."
+    touch $PROXY_APT
+    chmod 644 $PROXY_APT
+    echo "Acquire::http::proxy \"http://incidencias.dipgra.es:8080/\";" > $PROXY_APT
+    echo "Acquire::http::proxy::incidencias.dipgra.es \"DIRECT\""; > $PROXY_APT
+  fi
   case "$WGETRC_MOD" in
         false)
           echo "Comprobando si hay que configurar wget"
@@ -139,17 +148,13 @@ function _CONFIGURA_WGET(){
               echo -en "[\e[0;92mok\e[0m]"
               echo " Conexión operativa."
             fi
-          else
-            if [ -f $PROXY_APT ];then
+            if [ $VERSION_UBUNTU != "bionic" ];then
               echo "Comentando 00proxy"
               sed -i 's/.*/#&/' $PROXY_APT
               echo -en "[\e[0;92mok\e[0m]"
               echo " Se ha comentado 00proxy"
-              WGETRC_MOD="true"
-            else
-              echo -en "[\e[0;93maviso\e[0m]"
-              echo " No hay ningún proxy apt configurado"
             fi
+              WGETRC_MOD="true"
           fi
         ;;
         true)
@@ -162,7 +167,7 @@ function _CONFIGURA_WGET(){
           sed -i 's/proxy-password=$PROXY_PASS//g' /etc/wgetrc
           echo -en "[\e[0;92mok\e[0m]"
           echo " Se ha restablecido la configuración de wget"
-          if [ -f $PROXY_APT ];then
+          if [ $VERSION_UBUNTU != "bionic" ];then
             echo "Deshaciendo modificaciones en 00proxy"
             sed -i 's/#//g' $PROXY_APT
             echo -en "[\e[0;92mok\e[0m]"
