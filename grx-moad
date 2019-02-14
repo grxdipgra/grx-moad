@@ -5,11 +5,15 @@ while [ $# -ne 0 ]
 do
     case "$1" in
     -h|--help)
-        echo "La sintaxis es: $0 -u nombre_usuario [-c] [ruta_certificado_personal] [-p] [password_certificado_personal]"
+        echo "La sintaxis es: $0 -u nombre_usuario [-a] [ruta_certificados_CA] [-c] [ruta_certificado_personal] [-p] [password_certificado_personal]"
         exit 1
         ;;
     -u|--usuario)
         USUARIO="$2"
+        shift
+        ;;
+    -a|--certificado_ca)
+        CERTIFICADO_CA="$2"
         shift
         ;;
     -c|--certificado)
@@ -55,12 +59,12 @@ LIBNSS3_TOOLS=""
 GOOGLE_CHROME=""
 WGETRC_MOD="false"
 DIR_CERTIFICADOS_CA="/tmp/CERTIFICADOS_CA"
+CERTIFICADO_CA=""
 PERFIL_FIREFOX=""
 NUEVO_PERFIL_FIREFOX="/home/$USUARIO/.mozilla/firefox/dipgra.profile"
 DIR_BASE_DATOS_FIREFOX="/home/$USUARIO/.mozilla"
 DIR_BASE_DATOS_CHROME="/home/$USUARIO/.pki"
 PAQUETE=""
-RESULTADO=""
 REPOSITORIO=""
 WEBDAV="/usr/share/applications/libreoffice-webdav.desktop"
 MIME_WEBDAV="false"
@@ -71,7 +75,6 @@ PROXY_USER=""
 PROXY_PASS=""
 
 export PAQUETE
-export RESULTADO
 export WGETRC_MOD
 export WEBDAV
 export PERFIL_FIREFOX
@@ -84,6 +87,7 @@ export VERSION_UBUNTU
 export CERTIFICADO_PERSONAL
 export DIR_CERTIFICADOS_CA
 export URL_CERTIFICADOS_CA
+export CERTIFICADO_CA
 export PROXY_APT
 export PROXY_USER
 export PROXY_PASS
@@ -91,16 +95,16 @@ export PROXY_PASS
 ################ FUNCIONES ##########################
 
 function _COMPRUEBA_INSTALACION(){
-  echo "Comprobando si $PAQUETE esta presente"
-  dpkg -s $PAQUETE > /dev/null
+  echo "Comprobando si $1 esta presente"
+  dpkg -s $1 > /dev/null
   if [ $? -eq 0 ];then # si esta instalado
     echo -en "[\e[0;92mok\e[0m]"
-    echo " $PAQUETE esta presente"
-    RESULTADO="true"
+    echo " $1 esta presente"
+    return 1
   else
     echo -en "[\e[0;93maviso\e[0m]"
-    echo " $PAQUETE no esta presente"
-    RESULTADO="false"
+    echo " $1 no esta presente"
+    return 0
   fi
 }
 
@@ -246,12 +250,12 @@ function _INSTALA_JAVA(){
   case "$VERSION_UBUNTU" in
     trusty)
       echo "Instalando oracle-java8-installer y oracle-java-set-default ..."
-      apt install oracle-java8-installer oracle-java8-set-default
+      apt install --assume-yes oracle-java8-installer oracle-java8-set-default
       JAVA="true"
       ;;
     xenial)
       echo "Instalando openjdk-8-jdk ..."
-      apt install openjdk-8-jdk
+      apt install --assume-yes openjdk-8-jdk
       apt install -f
       echo -en "[\e[0;92mok\e[0m]"
       echo " Se ha instalado openjdk-8-jdk"
@@ -260,7 +264,7 @@ function _INSTALA_JAVA(){
     bionic)
       echo "Se instalará openjdk."
       echo "Instalando openjdk-8-jdk ..."
-      apt install openjdk-8-jdk
+      apt install --assume-yes openjdk-8-jdk
       apt install -f
       echo -en "[\e[0;92mok\e[0m]"
       echo " Se ha instalado openjdk-8-jdk"
@@ -270,7 +274,7 @@ function _INSTALA_JAVA(){
 
 function _INSTALA_LIBNSS3_TOOLS(){
   echo "Instalando libnss3-tools"
-  apt install libnss3-tools
+  apt install --assume-yes libnss3-tools
   apt install -f
   echo -en "[\e[0;92mok\e[0m]"
   echo " Se ha instalado libnss3-tools"
@@ -279,7 +283,7 @@ function _INSTALA_LIBNSS3_TOOLS(){
 
 function _INSTALA_CHROME(){
     echo "Instalando google-chrome-stable"
-    apt install google-chrome-stable
+    apt install --assume-yes google-chrome-stable
     apt install -f
     echo -en "[\e[0;92mok\e[0m]"
     echo " Se ha instalado google-chrome-stable"
@@ -352,18 +356,22 @@ function _PERFIL_FIREFOX(){
 }
 
 function _DESCARGA_CERTIFICADOS_CA(){
-  echo "Descargando certificados CA ..."
-  wget --no-check-certificate -e use_proxy=no $URL_CERTIFICADOS_CA -O /tmp/CERTIFICADOS_CA.tar.xz
-  if [ $? -eq 0 ];then
-    echo -en "[\e[0;92mok\e[0m]"
-    echo " Certificados CA descargados correctamente."
-    mkdir ${DIR_CERTIFICADOS_CA}
-    echo "Descomprimiendo ..."
-    tar -xvf /tmp/CERTIFICADOS_CA.tar.xz --directory ${DIR_CERTIFICADOS_CA}
+  mkdir ${DIR_CERTIFICADOS_CA}
+  if [ "$CERTIFICADO_CA" == "" ];then
+    echo "Descargando certificados CA ..."
+    wget --no-check-certificate -e use_proxy=no $URL_CERTIFICADOS_CA -O /tmp/CERTIFICADOS_CA.tar.xz
+    if [ $? -eq 0 ];then
+      echo -en "[\e[0;92mok\e[0m]"
+      echo " Certificados CA descargados correctamente."
+      echo "Descomprimiendo ..."
+      tar -xvf /tmp/CERTIFICADOS_CA.tar.xz --directory ${DIR_CERTIFICADOS_CA}
+    else
+      echo -en "[\e[0;91mfallo\e[0m]"
+      echo " No se pueden descargar los certificados."
+      return 1
+    fi
   else
-    echo -en "[\e[0;91mfallo\e[0m]"
-    echo " No se pueden descargar los certificados."
-    return 1
+    cp {$CERTIFICADO_CA}/* ${DIR_CERTIFICADOS_CA}
   fi
 }
 
@@ -589,25 +597,25 @@ fi
 
 if [ "$VERSION_UBUNTU" == trusty ];then
   PAQUETE="oracle-java8-installer"
-  _COMPRUEBA_INSTALACION
-  JAVA=$RESULTADO
+  _COMPRUEBA_INSTALACION $PAQUETE
+  JAVA=$?
 else
   PAQUETE="openjdk-8-jdk"
-  _COMPRUEBA_INSTALACION
-  JAVA=$RESULTADO
+  _COMPRUEBA_INSTALACION $PAQUETE
+  JAVA=$?
 fi
 
 PAQUETE="libnss3-tools"
-_COMPRUEBA_INSTALACION
-LIBNSS3_TOOLS=$RESULTADO
+_COMPRUEBA_INSTALACION $PAQUETE
+LIBNSS3_TOOLS=$?
 
 PAQUETE="autofirma"
-_COMPRUEBA_INSTALACION
-AUTOFIRMA=$RESULTADO
+_COMPRUEBA_INSTALACION $PAQUETE
+AUTOFIRMA=$?
 
 PAQUETE="google-chrome-stable"
-_COMPRUEBA_INSTALACION
-GOOGLE_CHROME=$RESULTADO
+_COMPRUEBA_INSTALACION $PAQUETE
+GOOGLE_CHROME=$?
 
 # Comprobamos repositorios java y google-chrome-stable
 
@@ -640,21 +648,38 @@ fi
 
 # Instalamos el software faltante si lo hubiera
 
-if [ "$JAVA" == "false" ];then #hay que instalar java
+if [ $JAVA -eq 0 ];then #hay que instalar java
   _INSTALA_JAVA
+  PAQUETE="oracle-java8-installer"
+  _COMPRUEBA_INSTALACION
+  JAVA=$?
 fi
-if [ "$LIBNSS3_TOOLS" == "false" ];then #hay que instalar libnss3-tools
+if [ $LIBNSS3_TOOLS -eq 0 ];then #hay que instalar libnss3-tools
   _INSTALA_LIBNSS3_TOOLS
+  PAQUETE="libnss3-tools"
+  _COMPRUEBA_INSTALACION
+  LIBNSS3_TOOLS=$?
 fi
-if [ "$GOOGLE_CHROME" == "false" ];then #hay que instalar google-chrome-stable
+if [ $GOOGLE_CHROME -eq 0 ];then #hay que instalar google-chrome-stable
   _INSTALA_CHROME
+  PAQUETE="google-chrome-stable"
+  _COMPRUEBA_INSTALACION $PAQUETE
+  GOOGLE_CHROME=$?
 fi
 
-if [ "$AUTOFIRMA" == "false" ];then #hay que instalar autofirma
+if [ $AUTOFIRMA -eq 0 ];then #hay que instalar autofirma
   _INSTALA_AUTOFIRMA
+  PAQUETE="autofirma"
+  _COMPRUEBA_INSTALACION $PAQUETE
+  AUTOFIRMA=$?
 fi
-echo -en "[\e[0;92mok\e[0m]"
-echo " El software necesario está instalado"
+if [ $JAVA -eq 0 -o $LIBNSS3_TOOLS -eq 0 -o $AUTOFIRMA -eq 0 ];then
+  echo -en "[\e[0;91mfallo\e[0m]"
+  echo " No se ha instalado todo el software necesario"
+else
+  echo -en "[\e[0;92mok\e[0m]"
+  echo " Todo el software necesario está instalado"
+fi
 
 ####################### PERFILES ###############################
 
