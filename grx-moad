@@ -27,7 +27,7 @@ do
     *)
         echo -en "[\e[0;91mfallo\e[0m]"
         echo " Uso incorrecto."
-        echo "La sintaxis es: $0 -u nombre_usuario [-c] [ruta_certificado_personal] [-p] [password_certificado_personal]"
+        echo "La sintaxis es: $0 -u nombre_usuario [-a] [ruta_certificados_CA] [-c] [ruta_certificado_personal] [-p] [password_certificado_personal]"
         exit 1
         ;;
     esac
@@ -37,11 +37,18 @@ done
 if [ -z "$USUARIO" ];then
     echo -en "[\e[0;91mfallo\e[0m]"
     echo " Uso incorrecto."
-    echo "La sintaxis es: $0 -u nombre_usuario [-c] [ruta_certificado_personal] [-p] [password_certificado_personal]"
+    echo "La sintaxis es: $0 -u nombre_usuario [-a] [ruta_certificados_CA] [-c] [ruta_certificado_personal] [-p] [password_certificado_personal]"
     exit 1
 fi
 echo -en "[\e[0;94mNombre de usuario:\e[0m]"
 echo " $USUARIO"
+if [ -z "$CERTIFICADO_CA" ];then
+    echo -en "[\e[0;93maviso\e[0m]"
+    echo " Se descargarán los certificados CA de http://incidencias.dipgra.es"
+else
+  echo -en "[\e[0;94mRuta de certificados CA:\e[0m]"
+  echo " $CERTIFICADO_CA"
+fi
 if [ -z "$CERTIFICADO_PERSONAL" ];then
     echo -en "[\e[0;93maviso\e[0m]"
     echo " No se importará ningún certificado personal"
@@ -59,7 +66,6 @@ LIBNSS3_TOOLS=""
 GOOGLE_CHROME=""
 WGETRC_MOD="false"
 DIR_CERTIFICADOS_CA="/tmp/CERTIFICADOS_CA"
-CERTIFICADO_CA=""
 PERFIL_FIREFOX=""
 NUEVO_PERFIL_FIREFOX="/home/$USUARIO/.mozilla/firefox/dipgra.profile"
 DIR_BASE_DATOS_FIREFOX="/home/$USUARIO/.mozilla"
@@ -356,7 +362,11 @@ function _PERFIL_FIREFOX(){
 }
 
 function _DESCARGA_CERTIFICADOS_CA(){
-  mkdir ${DIR_CERTIFICADOS_CA}
+  if [ -d ${DIR_CERTIFICADOS_CA} ];then
+    rm -R ${DIR_CERTIFICADOS_CA}
+    echo "Creando directorio $DIR_CERTIFICADOS_CA"
+    mkdir ${DIR_CERTIFICADOS_CA}
+  fi
   if [ "$CERTIFICADO_CA" == "" ];then
     echo "Descargando certificados CA ..."
     wget --no-check-certificate -e use_proxy=no $URL_CERTIFICADOS_CA -O /tmp/CERTIFICADOS_CA.tar.xz
@@ -371,7 +381,7 @@ function _DESCARGA_CERTIFICADOS_CA(){
       return 1
     fi
   else
-    cp {$CERTIFICADO_CA}/* ${DIR_CERTIFICADOS_CA}
+    cp $CERTIFICADO_CA/* ${DIR_CERTIFICADOS_CA}
   fi
 }
 
@@ -393,7 +403,7 @@ function _IMPORTA_CERTIFICADOS_CA(){
     certfile=${DIR_CERTIFICADOS_CA}/$certfile
 
     if [ "$PERFIL_FIREFOX" != "" ];then
-      echo "[\e[0;94mImportando certificados CA en el almacén antiguo de Firefox\e[0m]"
+      echo -e "\e[0;94mImportando certificado CA en el almacén antiguo de Firefox\e[0m"
       for certDB in $(find ${DIR_BASE_DATOS_FIREFOX}  -name "cert8.db")
       do
         certdir=$(dirname $certDB)'/'
@@ -404,14 +414,14 @@ function _IMPORTA_CERTIFICADOS_CA(){
           ERROR="true"
         else
           echo -en "[\e[0;92mok\e[0m]"
-          echo " Importando $certificado al almacén "$certdir"cert8.db"
+          echo " Importado $certificado al almacén "$certdir"cert8.db"
         fi
       done
     else
       echo -en "[\e[0;91mfallo\e[0m]"
       echo " No se pueden importar los certificados. Perfil de mozilla inexistente"
     fi
-    echo "[\e[0;94mImportando certificados CA en el almacén antiguo de Chrome\e[0m]"
+    echo -e "\e[0;94mImportando certificado CA en el almacén antiguo de Chrome\e[0m"
     for certDB in $(find ${DIR_BASE_DATOS_CHROME}  -name "cert8.db")
     do
       certdir=$(dirname $certDB)'/'
@@ -422,12 +432,12 @@ function _IMPORTA_CERTIFICADOS_CA(){
         ERROR="true"
       else
         echo -en "[\e[0;92mok\e[0m]"
-        echo " Importando $certificado al almacén "$certdir"cert8.db"
+        echo " Importado $certificado al almacén "$certdir"cert8.db"
       fi
     done
 
   ### Para cert9.db (SQL) CHROME
-    echo "[\e[0;94mImportando certificados CA en el nuevo almacén de Firefox\e[0m]"
+    echo -e "\e[0;94mImportando certificado CA en el nuevo almacén de Firefox\e[0m"
     for certDB in $(find ${DIR_BASE_DATOS_FIREFOX} -name "cert9.db")
     do
       certdir=$(dirname $certDB)'/'
@@ -438,10 +448,10 @@ function _IMPORTA_CERTIFICADOS_CA(){
         ERROR="true"
       else
         echo -en "[\e[0;92mok\e[0m]"
-        echo " Importando $certificado al almacén "$certdir"cert9.db"
+        echo " Importado $certificado al almacén "$certdir"cert9.db"
       fi
     done
-    echo "[\e[0;94mImportando certificados CA en el nuevo almacén de Chrome.\e[0m]"
+    echo -e "\e[0;94mImportando certificado CA en el nuevo almacén de Chrome.\e[0m"
     for certDB in $(find ${DIR_BASE_DATOS_CHROME} -name "cert9.db")
     do
       certdir=$(dirname $certDB)'/'
@@ -452,16 +462,16 @@ function _IMPORTA_CERTIFICADOS_CA(){
         ERROR="true"
       else
         echo -en "[\e[0;92mok\e[0m]"
-        echo " Importando $certificado al almacén "$certdir"cert9.db"
+        echo " Importado $certificado al almacén "$certdir"cert9.db"
       fi
     done
   done
   if [ "$ERROR" == "true" ];then
     echo -en "[\e[0;93maviso\e[0m]"
-    echo " La importación de certificados de autoridades ha finalizado con errores."
+    echo " La importación de certificados CA ha finalizado con errores."
   else
     echo -en "[\e[0;92mok\e[0m]"
-    echo " La importación de certificados de autoridades ha finalizado sin errores."
+    echo " La importación de certificados CA ha finalizado sin errores."
   fi
 }
 
