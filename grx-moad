@@ -374,7 +374,7 @@ function _DESCARGA_CERTIFICADOS_CA(){
       echo -en "[\e[0;92mok\e[0m]"
       echo " Certificados CA descargados correctamente."
       echo "Descomprimiendo ..."
-      tar -xvf /tmp/CERTIFICADOS_CA.tar.xz --directory ${DIR_CERTIFICADOS_CA}
+      tar -xvf /tmp/CERTIFICADOS_CA.tar.xz --directory ${DIR_CERTIFICADOS_CA} > /dev/null
     else
       echo -en "[\e[0;91mfallo\e[0m]"
       echo " No se pueden descargar los certificados."
