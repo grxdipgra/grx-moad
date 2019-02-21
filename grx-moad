@@ -57,42 +57,114 @@ else
   echo " $CERTIFICADO_PERSONAL"
 fi
 
-################# VARIABLES ########################
+################# CONSTANTES ########################
 
-JAVA_ORACLE=""
-OPEN_JDK=""
-AUTOFIRMA=""
-LIBNSS3_TOOLS=""
-GOOGLE_CHROME=""
-WGETRC_MOD="false"
-DIR_CERTIFICADOS_CA="/tmp/CERTIFICADOS_CA"
-PERFIL_FIREFOX=""
 NUEVO_PERFIL_FIREFOX="/home/$USUARIO/.mozilla/firefox/dipgra.profile"
 DIR_BASE_DATOS_FIREFOX="/home/$USUARIO/.mozilla"
 DIR_BASE_DATOS_CHROME="/home/$USUARIO/.pki"
-PAQUETE=""
-REPOSITORIO=""
 WEBDAV="/usr/share/applications/libreoffice-webdav.desktop"
-MIME_WEBDAV="false"
 VERSION_UBUNTU=$(lsb_release -c | cut -d ":" -f 2 | sed 's/\t//g')
+DIR_CERTIFICADOS_CA="/tmp/CERTIFICADOS_CA"
+DIR_AUTOFIRMA="/tmp/AutoFirma_Linux.zip"
+URL_SOURCES_GRX="http://incidencias.dipgra.es/trusty-rep/pool/main/g/grx-sources/grx-sources_0.7.2016_all.deb"
 URL_CERTIFICADOS_CA="https://incidencias.dipgra.es/portal/publico/CERTIFICADOS_CA.tar.xz"
-PROXY_APT="/etc/apt/apt.conf.d/00proxy"
+URL_AUTOFIRMA="https://estaticos.redsara.es/comunes/autofirma/currentversion/AutoFirma_Linux.zip"
+
+################ VARIABLES ##########################
+
+WGETRC_MOD="false"
+PERFIL_FIREFOX=""
+MIME_WEBDAV="false"
 PROXY_USER=""
 PROXY_PASS=""
+JAVA=""
 
-export PAQUETE
+############### ARRAYS ##############################
+        ##### CONEXION #####
+
+declare -A CONEXIONES
+CONEXIONES[proxy]="false"
+CONEXIONES[mulhacen]="false"
+CONEXIONES[internet]="false"
+
+        ##### SOFTWARE #####
+
+declare -A SOFTWARE
+if [ "$VERSION_UBUNTU" == "trusty" ];then
+  SOFTWARE[oracle-java8-installer]="false"
+  JAVA="oracle-java8-installer"
+else
+  SOFTWARE[openjdk-8-jdk]="false"
+  JAVA="openjdk-8-jdk"
+fi
+SOFTWARE[libnss3-tools]="false"
+SOFTWARE[google-chrome-stable]="false"
+SOFTWARE[autofirma]="false"
+
+       ##### REPOSITORIOS #####
+if [ "$VERSION_UBUNTU" == "trusty" ];then
+  declare -A REP_ORACLE
+  REP_ORACLE[nombre]="oracle-java8-installer"
+  REP_ORACLE[rep1]="deb http://ppa.launchpad.net/webupd8team/java/ubuntu trusty main"
+  REP_ORACLE[rep2]="deb-src http://ppa.launchpad.net/webupd8team/java/ubuntu trusty main"
+  REP_ORACLE[list]="/etc/apt/sources.list.d/webupd8team-ubuntu-java-trusty.list"
+else
+  declare -A REP_OPENJDK
+  REP_OPENJDK[nombre]="openjdk-8-jdk"
+  REP_OPENJDK[rep1]="ppa:openjdk-r/ppa"
+fi
+
+declare -A REP_CHROME
+REP_CHROME[nombre]="google-chrome-stable"
+REP_CHROME[rep1]="deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main"
+REP_CHROME[list]="/etc/apt/sources.list.d/google-chrome.list"
+
+       ##### ARCHIVOS DE CONFIGURACION #####
+
+declare -A FILE_PROXY_APT
+FILE_PROXY_APT[nombre]="/etc/apt/apt.conf.d/00proxy"
+FILE_PROXY_APT[line1]="Acquire::http::proxy \"http://incidencias.dipgra.es:8080/\";"
+FILE_PROXY_APT[line1]="Acquire::http::proxy::incidencias.dipgra.es \"DIRECT\""
+
+declare -A FILE_WGETRC
+FILE_WGETRC[nombre]="/etc/wgetrc"
+FILE_WGETRC[line1]="use_proxy = on"
+FILE_WGETRC[line2]="http_proxy = http://195.57.47.66:8080/"
+FILE_WGETRC[line3]="https_proxy = http://195.57.47.66:8080/"
+FILE_WGETRC[line4]="ftp_proxy = http://195.57.47.66:8080/"
+FILE_WGETRC[line5]="proxy-user = "
+FILE_WGETRC[line6]="proxy-password = "
+
+declare -A FILE_PROFILES_INI
+FILE_PROFILES_INI[nombre]="profiles.ini"
+FILE_PROFILES_INI[line1]="[General]"
+FILE_PROFILES_INI[line2]="StartWithLastProfile=1"
+FILE_PROFILES_INI[line3]=""
+FILE_PROFILES_INI[line4]="[Profile0]"
+FILE_PROFILES_INI[line5]="Name=profile"
+FILE_PROFILES_INI[line6]="IsRelative=1"
+FILE_PROFILES_INI[line7]="Path=dipgra.profile"
+FILE_PROFILES_INI[line8]="Default=1"
+
+############ EXPORTS ###################################
+
+export CONEXIONES
+export SOFTWARE
+export JAVA
+export REP_ORACLE
+export REP_OPENJDK
+export REP_CHROME
+export FILE_WGETRC
+export FILE_PROXY_APT
 export WGETRC_MOD
 export WEBDAV
 export PERFIL_FIREFOX
-export JAVA_ORACLE
-export OPEN_JDK
-export AUTOFIRMA
-export LIBNSS3_TOOLS
-export GOOGLE_CHROME
 export VERSION_UBUNTU
 export CERTIFICADO_PERSONAL
 export DIR_CERTIFICADOS_CA
+export URL_SOURCES_GRX
 export URL_CERTIFICADOS_CA
+export URL_AUTOFIRMA
 export CERTIFICADO_CA
 export PROXY_APT
 export PROXY_USER
@@ -100,86 +172,152 @@ export PROXY_PASS
 
 ################ FUNCIONES ##########################
 
-function _COMPRUEBA_INSTALACION(){
-  echo "Comprobando si $1 esta presente"
-  dpkg -s $1 > /dev/null
-  if [ $? -eq 0 ];then # si esta instalado
+function _CONEXION() {
+  ## Comprobamos mulhacen
+  echo "Comprobando la conexión a la red Mulhacen ..."
+  wget -T 10 -t 1 $URL_SOURCES_GRX -O /tmp/grx-sources_0.7.2016_all.deb > /dev/null 2>&1
+  if [ $? -eq 0 ];then
+    CONEXIONES["mulhacen"]="true"
     echo -en "[\e[0;92mok\e[0m]"
-    echo " $1 esta presente"
-    return 1
+    echo " El equipo está conectado a la red Mulhacen"
+    ## Comprobamos proxy
+    echo "Comprobando si existe proxy ..."
+    wget -T 10 -t 1 www.google.es -O /tmp/comprueba_proxy > /dev/null 2>&1
+    if [ $? -eq 0 ];then
+      CONEXIONES["proxy"]="false"
+      CONEXIONES["internet"]="true"
+      echo -en "[\e[0;92mok\e[0m]"
+      echo " El equipo está conectado a internet directamente sin proxy"
+    else
+      CONEXIONES["proxy"]="true"
+      echo -en "[\e[0;93maviso\e[0m]"
+      echo " El equipo está conectado a través de proxy"
+    fi
   else
+    CONEXIONES["mulhacen"]="false"
+    CONEXIONES["proxy"]="false"
     echo -en "[\e[0;93maviso\e[0m]"
-    echo " $1 no esta presente"
-    return 0
+    echo " El equipo no está conectado a la red Mulhacen"
+    ## Comprobamos si hay internet directo
+    echo "Comprobando la conexión a internet ..."
+    wget -T 10 www.google.es -O /tmp/comprueba_proxy > /dev/null 2>&1
+    if [ $? -eq 0 ];then
+      CONEXIONES["internet"]="true"
+      echo -en "[\e[0;92mok\e[0m]"
+      echo " El equipo está conectado a internet"
+    else
+      CONEXIONES["internet"]="false"
+      echo -en "[\e[0;91mfallo\e[0m]"
+      echo " El equipo no está conectado a internet."
+    fi
+  fi
+}
+
+function _ACTUALIZA_SOURCES() {
+  # Actualizamos grx-sources
+  echo -en "[\e[0;93maviso\e[0m]"
+  echo " Se va actualizar el repositorio GrX ..."
+  wget $URL_SOURCES_GRX -O /tmp/grx-sources_0.7.2016_all.deb
+  dpkg -i /tmp/grx-sources_0.7.2016_all.deb
+  apt update > /dev/null 2>&1
+  echo "Actualizando repositorios GrX ..."
+  if [ $? -ne 0 ];then
+    echo -en "[\e[0;91mfallo\e[0m]"
+    echo " Error actualizando repositorios GrX."
+  fi
+}
+
+function _COMPRUEBA_INSTALACION(){
+  for i in "${!SOFTWARE[@]}"
+  do
+    if [ "$VERSION_UBUNTU" == "trusty" -a "$i" == "openjdk-8-jdk" ];then
+      continue
+    elif [ "$VERSION_UBUNTU" != "trusty" -a "$i" == "oracle-java8-installer" ];then
+      continue
+    else
+      echo "Comprobando si $i esta presente"
+      dpkg -s $i > /dev/null 2>&1
+      if [ $? -eq 0 ];then # si esta instalado
+        echo -en "[\e[0;92mok\e[0m]"
+        echo " $i esta presente"
+        SOFTWARE[$i]="true"
+      else
+        echo -en "[\e[0;93maviso\e[0m]"
+        echo " $i no esta presente"
+        SOFTWARE[$i]="false"
+      fi
+    fi
+  done
+}
+
+function _INSTALACION_OK(){
+  if [ $1 == "true" ];then
+    echo -en "[\e[0;92mok\e[0m]"
+    echo " Se ha instalado $2"
+  else
+    echo -en "[\e[0;91mfallo\e[0m]"
+    echo " No se puede instalar $2"
+  fi
+}
+
+function _CONFIGURA_PROXY_APT (){
+  if [ -f $FILE_PROXY_APT["nombre"] ];then
+    echo -en "[\e[0;93maviso\e[0m]"
+    echo " No hay ningún proxy apt configurado."
+    echo "Configurando proxy apt."
+    touch $FILE_PROXY_APT["nombre"]
+    chmod 644 $FILE_PROXY_APT["nombre"]
+    echo $FILE_PROXY_APT["line1"] > $FILE_PROXY_APT["nombre"]
+    echo $FILE_PROXY_APT["line2"] > $FILE_PROXY_APT["nombre"]
   fi
 }
 
 function _CONFIGURA_WGET(){
-  if [ -f $PROXY_APT ];then
-    echo -en "[\e[0;93maviso\e[0m]"
-    echo " No hay ningún proxy apt configurado."
-    echo "Configurando proxy apt."
-    touch $PROXY_APT
-    chmod 644 $PROXY_APT
-    echo "Acquire::http::proxy \"http://incidencias.dipgra.es:8080/\";" > $PROXY_APT
-    echo "Acquire::http::proxy::incidencias.dipgra.es \"DIRECT\""; > $PROXY_APT
-  fi
   case "$WGETRC_MOD" in
-        false)
-          echo "Comprobando si hay que configurar wget"
-          wget -T 10 www.google.es -O /tmp/comprueba_proxy
-          if [ $? -ne 0 ];then # Se necesitan credenciales para wget
-            echo -en "[\e[0;93maviso\e[0m]"
-            echo " Hay que modificar wgetrc detrás de proxy"
-            WGETRC_MOD="true"
-            while [ "$PROXY_USER" == "" ];do
-              echo -n "Introduce un usuario válido para el proxy (usuario@dominio) y presiona [ENTER]: "
-              read PROXY_USER
-            done
-            while [ "$PROXY_PASS" == "" ];do
-              echo -n "Introduce la contraseña para el usuario $PROXY_USER y presiona [ENTER]: "
-              read -s PROXY_PASS
-            done
-            echo "use_proxy = on" >> /etc/wgetrc
-            echo "http_proxy = http://195.57.47.66:8080/" >> /etc/wgetrc
-            echo "https_proxy = http://195.57.47.66:8080/" >> /etc/wgetrc
-            echo "ftp_proxy = http://195.57.47.66:8080/" >> /etc/wgetrc
-            echo "proxy-user=$PROXY_USER" >> /etc/wgetrc
-            echo "proxy-password=$PROXY_PASS" >> /etc/wgetrc
-            echo -en "[\e[0;92mok\e[0m]"
-            echo " Se ha configurado wget."
-            echo "Comprobando conectividad."
-            wget -T 10 www.google.es -O /tmp/comprueba_proxy
-            if [ $? -ne 0 ];then
-                echo -en "[\e[0;91mfallo\e[0m]"
-                echo " La conexión no está operativa."
-                exit 1
+      false)
+        if [ ${CONEXIONES[proxy]} == "true" ];then # Se necesitan credenciales para wget
+          echo -en "[\e[0;93maviso\e[0m]"
+          echo " Hay que modificar wgetrc detrás de proxy. Haciendo copia de seguridad ..."
+          cp ${FILE_WGETRC[nombre]} ${FILE_WGETRC[nombre]}.old
+          WGETRC_MOD="true"
+          while [ "$PROXY_USER" == "" ];do
+            echo -n "Introduce un usuario válido para el proxy (usuario@dominio) y presiona [ENTER]: "
+            read PROXY_USER
+          done
+          while [ "$PROXY_PASS" == "" ];do
+            echo -n "Introduce la contraseña para el usuario $PROXY_USER y presiona [ENTER]: "
+            read -s PROXY_PASS
+            echo ""
+          done
+          echo ${FILE_WGETRC[line1]} > ${FILE_WGETRC[nombre]}
+          for (( c=2; c<=6; c++ ));do
+            if [ $c == '5' ];then
+              echo ${FILE_WGETRC["line"$c]}$PROXY_USER >> ${FILE_WGETRC[nombre]}
+            elif [ $c == '6' ];then
+              echo ${FILE_WGETRC["line"$c]}$PROXY_PASS >> ${FILE_WGETRC[nombre]}
             else
-              echo -en "[\e[0;92mok\e[0m]"
-              echo " Conexión operativa."
+              echo ${FILE_WGETRC["line"$c]} >> ${FILE_WGETRC[nombre]}
             fi
-            if [ $VERSION_UBUNTU != "bionic" ];then
-              echo "Comentando 00proxy"
-              sed -i 's/.*/#&/' $PROXY_APT
-              echo -en "[\e[0;92mok\e[0m]"
-              echo " Se ha comentado 00proxy"
-            fi
-              WGETRC_MOD="true"
+          done
+          echo -en "[\e[0;92mok\e[0m]"
+          echo " Se ha configurado wget."
+          if [ -f ${FILE_PROXY_APT[nombre]} -a "$VERSION_UBUNTU" == "bionic" ];then
+            echo "Comentando 00proxy"
+            sed -i 's/.*/#&/' ${FILE_PROXY_APT[nombre]}
+            echo -en "[\e[0;92mok\e[0m]"
+            echo " Se ha comentado 00proxy"
           fi
-        ;;
-        true)
-          echo "Deshaciendo modificaciones en wgetrc"
-          sed -i 's/use_proxy = on//g' /etc/wgetrc
-          sed -i 's/http_proxy = http:\/\/195.57.47.66:8080\///g' /etc/wgetrc
-          sed -i 's/https_proxy = http:\/\/195.57.47.66:8080\///g' /etc/wgetrc
-          sed -i 's/ftp_proxy = http:\/\/195.57.47.66:8080\///g' /etc/wgetrc
-          sed -i 's/proxy-user=$PROXY_USER//g' /etc/wgetrc
-          sed -i 's/proxy-password=$PROXY_PASS//g' /etc/wgetrc
+            WGETRC_MOD="true"
+        fi
+      ;;
+      true)
+          echo "Deshaciendo modificaciones en wgetrc ..."
+          mv ${FILE_WGETRC[nombre]}.old ${FILE_WGETRC[nombre]}
           echo -en "[\e[0;92mok\e[0m]"
           echo " Se ha restablecido la configuración de wget"
           if [ $VERSION_UBUNTU != "bionic" ];then
             echo "Deshaciendo modificaciones en 00proxy"
-            sed -i 's/#//g' $PROXY_APT
+            sed -i 's/#//g' ${FILE_WGETRC[nombre]}
             echo -en "[\e[0;92mok\e[0m]"
             echo "Se han deshecho los cambios en 00proxy"
           fi
@@ -187,32 +325,33 @@ function _CONFIGURA_WGET(){
   esac
 }
 
-function _MODIFICA_REPOSITORIO(){
+function _REPOSITORIOS(){
   EXISTE="false"
   echo -en "[\e[0;93maviso\e[0m]"
-  echo " Se instalará $REPOSITORIO."
-  echo "Comprobando si el repositorio de $REPOSITORIO está configurado ..."
+  echo " Se instalará $1."
+  echo "Comprobando si el repositorio de $1 está configurado ..."
   for file in $(ls -C1 /etc/apt/sources.list.d/)
   do
+    file="/etc/apt/sources.list.d/"$file
     if [ -f $file ];then
-      case "$REPOSITORIO" in
-        oracle-java8)
+      case "$1" in
+        oracle-java8-installer)
           # Comprobamos si existe el ppa de webupd8team
-          cat $file | grep "webupd8team" > /dev/null 2>&1
+          cat $file | grep "${REP_ORACLE[rep1]}" > /dev/null 2>&1
           if [ $? -eq 0 ];then
             EXISTE="true"
           fi
           ;;
-        openjdk)
+        openjdk-8-jdk)
           # Comprobamos si existe el ppa de openjdk
-          cat $file | grep "openjdk" > /dev/null 2>&1
+          cat $file | grep "${REP_OPENJDK[rep1]}" > /dev/null 2>&1
           if [ $? -eq 0 ];then
             EXISTE="true"
           fi
           ;;
         google-chrome-stable)
           # Comprobamos si existe el ppa dl.google.com
-          cat $file | grep "dl.google.com" > /dev/null 2>&1
+          cat $file | grep "${REP_CHROME[rep1]}" > /dev/null 2>&1
           if [ $? -eq 0 ];then
             EXISTE="true"
           fi
@@ -222,21 +361,21 @@ function _MODIFICA_REPOSITORIO(){
   done
   if [ "$EXISTE" == "false" ];then # Si  no existe lo creamos
     echo -en "[\e[0;93maviso\e[0m]"
-    echo " El repositorio de $REPOSITORIO no está configurado."
-    echo "Configurando repositorio de $REPOSITORIO ..."
-    case "$REPOSITORIO" in
-      oracle-java8)
-        touch /etc/apt/sources.list.d/webupd8team-ubuntu-java-trusty.list
-        echo "deb http://ppa.launchpad.net/webupd8team/java/ubuntu trusty main" >>  /etc/apt/sources.list.d/webupd8team-ubuntu-java-trusty.list
-        echo "deb-src http://ppa.launchpad.net/webupd8team/java/ubuntu trusty main" >> /etc/apt/sources.list.d/webupd8team-ubuntu-java-trusty.list
+    echo " El repositorio de $1 no está configurado."
+    echo "Configurando repositorio de $1 ..."
+    case $1 in
+      oracle-java8-installer)
+        touch ${REP_ORACLE[list]}
+        echo ${REP_ORACLE[rep1]} >  ${REP_ORACLE[list]}
+        echo ${REP_ORACLE[rep2]} >> ${REP_ORACLE[list]}
         #add-apt-repository ppa:webupd8team/java
         ;;
-      openjdk)
-        add-apt-repository ppa:openjdk-r/ppa
+      openjdk-8-jdk)
+        add-apt-repository ${REP_OPENJDK[rep1]}
         ;;
       google-chrome-stable)
-        touch /etc/apt/sources.list.d/google-chrome.list
-        echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >>  /etc/apt/sources.list.d/google-chrome.list
+        touch ${REP_CHROME[list]}
+        echo ${REP_CHROME[rep1]} >>  ${REP_CHROME[list]}
         echo -en "[\e[0;92mok\e[0m]"
         echo "Obteniendo la clave del repositorio de google en el keyring"
         wget https://dl.google.com/linux/linux_signing_key.pub -O /tmp/linux_signing_key.pub
@@ -244,37 +383,42 @@ function _MODIFICA_REPOSITORIO(){
         ;;
     esac
     echo -en "[\e[0;92mok\e[0m]"
-    echo " El repositorio de $REPOSITORIO se ha configurado."
+    echo " El repositorio de $1 se ha configurado."
+    echo "Actualizando ..."
+    apt update
+    if [ $? -ne 0 ];then
+      echo -en "[\e[0;91mfallo\e[0m]"
+      echo " Error actualizando repositorios."
+    fi
   else
     echo -en "[\e[0;92mok\e[0m]"
-    echo " El repositorio de $REPOSITORIO ya estába configurado."
+    echo " El repositorio de $1 ya estába configurado."
   fi
 }
 
 function _INSTALA_JAVA(){
   echo " Instalando java para Ubuntu $VERSION_UBUNTU ..."
-  case "$VERSION_UBUNTU" in
+  case $VERSION_UBUNTU in
     trusty)
       echo "Instalando oracle-java8-installer y oracle-java-set-default ..."
-      apt install --assume-yes oracle-java8-installer oracle-java8-set-default
-      JAVA="true"
+      apt install oracle-java8-installer oracle-java8-set-default
+      _COMPRUEBA_INSTALACION
+      _INSTALACION_OK ${SOFTWARE[oracle-java8-installer]} "oracle-java-8-installer"
       ;;
     xenial)
       echo "Instalando openjdk-8-jdk ..."
       apt install --assume-yes openjdk-8-jdk
       apt install -f
-      echo -en "[\e[0;92mok\e[0m]"
-      echo " Se ha instalado openjdk-8-jdk"
-      JAVA="true"
+      _COMPRUEBA_INSTALACION
+      _INSTALACION_OK ${SOFTWARE[openjdk-8-jdk]} "openjdk-8-jdk"
       ;;
     bionic)
       echo "Se instalará openjdk."
       echo "Instalando openjdk-8-jdk ..."
       apt install --assume-yes openjdk-8-jdk
       apt install -f
-      echo -en "[\e[0;92mok\e[0m]"
-      echo " Se ha instalado openjdk-8-jdk"
-      JAVA="true"
+      _COMPRUEBA_INSTALACION
+      _INSTALACION_OK ${SOFTWARE[openjdk-8-jdk]} "openjdk-8-jdk"
     esac
 }
 
@@ -282,46 +426,43 @@ function _INSTALA_LIBNSS3_TOOLS(){
   echo "Instalando libnss3-tools"
   apt install --assume-yes libnss3-tools
   apt install -f
-  echo -en "[\e[0;92mok\e[0m]"
-  echo " Se ha instalado libnss3-tools"
-  LIBNSS3_TOOLS="true"
+  _COMPRUEBA_INSTALACION
+  _INSTALACION_OK ${SOFTWARE[libnss3-tools]} "libnss3-tools"
 }
 
 function _INSTALA_CHROME(){
     echo "Instalando google-chrome-stable"
     apt install --assume-yes google-chrome-stable
     apt install -f
-    echo -en "[\e[0;92mok\e[0m]"
-    echo " Se ha instalado google-chrome-stable"
-    GOOGLE_CHROME="true"
+    _COMPRUEBA_INSTALACION
+    _INSTALACION_OK ${SOFTWARE[google-chrome-stable]} "google-chrome-stable"
 }
 
 function _INSTALA_AUTOFIRMA(){
   #descargamos e instalamos autofirma
   echo "Descargando Autofirma"
-  wget https://estaticos.redsara.es/comunes/autofirma/currentversion/AutoFirma_Linux.zip -O /tmp/AutoFirma_Linux.zip
+  wget $URL_AUTOFIRMA -O $DIR_AUTOFIRMA
   echo "Descomprimiendo Autofirma"
-  unzip /tmp/AutoFirma_Linux.zip -d /tmp
+  unzip $DIR_AUTOFIRMA -d /tmp
   echo "Instalando Autofirma"
   dpkg -i /tmp/AutoFirma*.deb
   apt install -f
-  echo -en "[\e[0;92mok\e[0m]"
-  echo " Se ha instalado autofirma"
-  AUTOFIRMA="true"
+  _COMPRUEBA_INSTALACION
+  _INSTALACION_OK ${SOFTWARE[autofirma]} "autofirma"
 }
 
 function _PERFIL_CHROME(){
   echo -en "[\e[0;93maviso\e[0m]"
   echo " No existe la base de datos de certificados de Chrome."
   echo " ... creando base de datos ..."
-  mkdir /home/$USUARIO/.pki
-  chown "$USUARIO.usuarios del dominio" /home/$USUARIO/.pki
-  chmod 700 /home/$USUARIO/.pki
-  mkdir /home/$USUARIO/.pki/nssdb
-  chown "$USUARIO.usuarios del dominio" /home/$USUARIO/.pki/nssdb
-  chmod 700 /home/$USUARIO/.pki/nssdb
-  certutil -N -d sql:/home/$USUARIO/.pki/nssdb
-  chown "$USUARIO.usuarios del dominio" /home/$USUARIO/.pki/nssdb/*
+  mkdir $DIR_BASE_DATOS_CHROME
+  chown "$USUARIO.usuarios del dominio" $DIR_BASE_DATOS_CHROME
+  chmod 700 $DIR_BASE_DATOS_CHROME
+  mkdir $DIR_BASE_DATOS_CHROME/nssdb
+  chown "$USUARIO.usuarios del dominio" $DIR_BASE_DATOS_CHROME/nssdb
+  chmod 700 $DIR_BASE_DATOS_CHROME/nssdb
+  certutil -N -d sql:$DIR_BASE_DATOS_CHROME/nssdb
+  chown "$USUARIO.usuarios del dominio" $DIR_BASE_DATOS_CHROME/nssdb/*
   echo -en "[\e[0;92mok\e[0m]"
   echo " Se ha creado la base de datos de certificados de Chrome."
 }
@@ -331,42 +472,51 @@ function _PERFIL_FIREFOX(){
   echo " No exite perfil de firefox para el usuario ${USUARIO}."
   echo " Creando perfil ..."
   if [ "$VERSION_UBUNTU" == "trusty" -o "$VERSION_UBUNTU" == "xenial" ];then
-    firefox -CreateProfile -no-remote "dipgra.profile $NUEVO_PERFIL_FIREFOX"
+    su $USUARIO -c "firefox -CreateProfile -no-remote \"dipgra.profile $NUEVO_PERFIL_FIREFOX\""
   else
     su $USUARIO -c "firefox -CreateProfile -no-remote \"dipgra.profile $NUEVO_PERFIL_FIREFOX\""
   fi
-  chown -R "$USUARIO.usuarios del dominio" /home/${USUARIO}/.mozilla
+  chown -R "$USUARIO.usuarios del dominio" $DIR_BASE_DATOS_FIREFOX
   echo "Creando base de datos de certificados para firefox ..."
   certutil -N -d sql:${NUEVO_PERFIL_FIREFOX}
+  echo -en "[\e[0;92mok\e[0m]"
+  echo " Se ha creado la base de datos de certificados de Firefox."
+  #Si está instalado firefox esr Y LA VERSIÓN ES MENOR DE LA 58
+  dpkg -s firefox-esr > /dev/null 2>&1
+  if [ $? -eq 0 ];then
+    VERSION_FIREFOX=$(firefox-esr --version | cut -d " " -f3 | cut -d "." -f1)
+    if [ "$VERSION_FIREFOX" -lt 58 ];then
+      echo -en "[\e[0;93maviso\e[0m]"
+      echo " Se ha detectado una versión de Firefox-ESR $VERSION_FIREFOX instalada en el sistema, se crea un almacen de certificados antiguo"
+      certutil -N -d dbm:${NUEVO_PERFIL_FIREFOX}
+      chmod 600 ${NUEVO_PERFIL_FIREFOX}/cert8.db
+      chmod 600 ${NUEVO_PERFIL_FIREFOX}/key3.db
+    fi
+  fi
   chown "$USUARIO.usuarios del dominio" ${NUEVO_PERFIL_FIREFOX}/*
   chmod 600 ${NUEVO_PERFIL_FIREFOX}/cert9.db
   chmod 600 ${NUEVO_PERFIL_FIREFOX}/key4.db
-  echo -en "[\e[0;92mok\e[0m]"
-  echo " Se ha creado la base de datos de certificados de Firefox."
   echo "Creando profiles.ini"
-  RUTA_FIREFOX="/home/${USUARIO}/.mozilla/firefox"
-  touch ${RUTA_FIREFOX}/profiles.ini
-  chown "$USUARIO.usuarios del dominio" ${RUTA_FIREFOX}/profiles.ini
-  chmod 644 ${RUTA_FIREFOX}/profiles.ini
-  echo "[General]" > ${RUTA_FIREFOX}/profiles.ini
-  echo "StartWithLastProfile=1" >> ${RUTA_FIREFOX}/profiles.ini
-  echo "" >> ${RUTA_FIREFOX}/profiles.ini
-  echo "[Profile0]" >> ${RUTA_FIREFOX}/profiles.ini
-  echo "Name=profile" >> ${RUTA_FIREFOX}/profiles.ini
-  echo "IsRelative=1" >> ${RUTA_FIREFOX}/profiles.ini
-  echo "Path=dipgra.profile" >> ${RUTA_FIREFOX}/profiles.ini
-  echo "Default=1" >> ${RUTA_FIREFOX}/profiles.ini
+  FILE_PROFILES_INI[nombre]="/home/${USUARIO}/.mozilla/firefox/profiles.ini"
+  touch ${FILE_PROFILES_INI[nombre]}
+  chown "$USUARIO.usuarios del dominio" ${FILE_PROFILES_INI[nombre]}
+  chmod 644 ${FILE_PROFILES_INI[nombre]}
+  echo ${FILE_PROFILES_INI["line1"]} > ${FILE_PROFILES_INI[nombre]}
+  for (( c=2; c<=8; c++ ))
+  do
+    echo ${FILE_PROFILES_INI["line"$c]} >> ${FILE_PROFILES_INI[nombre]}
+  done
   echo -en "[\e[0;92mok\e[0m]"
-  echo " Se ha creado ${RUTA_FIREFOX}/profiles.ini."
-  PERFIL_FIREFOX=$(cat /home/$USUARIO/.mozilla/firefox/profiles.ini | grep "Path" | cut -d'=' -f2)
+  echo " Se ha creado "${FILE_PROFILES_INI[nombre]}
+  PERFIL_FIREFOX=$(cat ${FILE_PROFILES_INI[nombre]} | grep "Path" | cut -d'=' -f2)
 }
 
 function _DESCARGA_CERTIFICADOS_CA(){
-  if [ -d ${DIR_CERTIFICADOS_CA} ];then
-    rm -R ${DIR_CERTIFICADOS_CA}
+  if [ -d $DIR_CERTIFICADOS_CA ];then
+    rm -R $DIR_CERTIFICADOS_CA
+  fi
     echo "Creando directorio $DIR_CERTIFICADOS_CA"
     mkdir ${DIR_CERTIFICADOS_CA}
-  fi
   if [ "$CERTIFICADO_CA" == "" ];then
     echo "Descargando certificados CA ..."
     wget --no-check-certificate -e use_proxy=no $URL_CERTIFICADOS_CA -O /tmp/CERTIFICADOS_CA.tar.xz
@@ -403,7 +553,7 @@ function _IMPORTA_CERTIFICADOS_CA(){
     certfile=${DIR_CERTIFICADOS_CA}/$certfile
 
     if [ "$PERFIL_FIREFOX" != "" ];then
-      echo -e "\e[0;94mImportando certificado CA en el almacén antiguo de Firefox\e[0m"
+      echo -e "\e[0;94mImportando certificados CA en el almacén antiguo de Firefox\e[0m"
       for certDB in $(find ${DIR_BASE_DATOS_FIREFOX}  -name "cert8.db")
       do
         certdir=$(dirname $certDB)'/'
@@ -421,7 +571,7 @@ function _IMPORTA_CERTIFICADOS_CA(){
       echo -en "[\e[0;91mfallo\e[0m]"
       echo " No se pueden importar los certificados. Perfil de mozilla inexistente"
     fi
-    echo -e "\e[0;94mImportando certificado CA en el almacén antiguo de Chrome\e[0m"
+    echo -e "\e[0;94mImportando certificados CA en el almacén antiguo de Chrome\e[0m"
     for certDB in $(find ${DIR_BASE_DATOS_CHROME}  -name "cert8.db")
     do
       certdir=$(dirname $certDB)'/'
@@ -483,21 +633,45 @@ function _IMPORTA_CERTIFICADO_PERSONAL(){
     if [ -f "$ARCHIVO" ];then
       echo "Se va a importar el certficado "$ARCHIVO
       pk12util -l $ARCHIVO -r -W ${PASS_CERTIFICADO}
+      if [ -f /home/$USUARIO/.mozilla/firefox/$PERFIL_FIREFOX/cert8.db ];then
+        echo -en "[\e[0;93maviso\e[0m]"
+        echo " Existe una base de datos antigua de certificados de firefox ... importando certificado personal"
+        pk12util -i $ARCHIVO -d dbm:/home/$USUARIO/.mozilla/firefox/$PERFIL_FIREFOX -W ${PASS_CERTIFICADO}
+        if [ $? -eq 0 ];then
+          echo -en "[\e[0;92mok\e[0m]"
+          echo " Se ha importado el certificado $ARCHIVO con éxito en el almacen antiguo de firefox."
+        else
+          echo -en "[\e[0;91mfallo\e[0m]"
+          echo " Se ha producido un error importando el certificado al almacen antiguo de firefox."
+        fi
+      fi
       pk12util -i $ARCHIVO -d sql:/home/$USUARIO/.mozilla/firefox/$PERFIL_FIREFOX -W ${PASS_CERTIFICADO}
       if [ $? -eq 0 ];then
         echo -en "[\e[0;92mok\e[0m]"
-        echo " Se ha importado el certificado $ARCHIVO con éxito en el almacen de firefox."
+        echo " Se ha importado el certificado $ARCHIVO con éxito al nuevo almacen de firefox."
       else
         echo -en "[\e[0;91mfallo\e[0m]"
-        echo " Se ha producido un error importando el certificado al almacen de firefox."
+        echo " Se ha producido un error importando el certificado al nuevo almacen de firefox."
+      fi
+      if [ -f /home/$USUARIO/.pki/nssdb/cert8.db ];then
+        echo -en "[\e[0;93maviso\e[0m]"
+        echo " Existe una base de datos antigua de certificados de chrome ... importando certificado personal"
+        pk12util -i $ARCHIVO -d dbm:/home/$USUARIO/.pki/nssdb -W ${PASS_CERTIFICADO}
+        if [ $? -eq 0 ];then
+          echo -en "[\e[0;92mok\e[0m]"
+          echo " Se ha importado el certificado $ARCHIVO con éxito al almacen antiguo de chrome."
+        else
+          echo -en "[\e[0;91mfallo\e[0m]"
+          echo " Se ha producido un error importando el certificado al almacen antiguo de chrome."
+        fi
       fi
       pk12util -i $ARCHIVO -d sql:/home/$USUARIO/.pki/nssdb -W ${PASS_CERTIFICADO}
       if [ $? -eq 0 ];then
         echo -en "[\e[0;92mok\e[0m]"
-        echo " Se ha importado el certificado $ARCHIVO con éxito al almacen de chrome."
+        echo " Se ha importado el certificado $ARCHIVO con éxito al nuevo almacen de chrome."
       else
         echo -en "[\e[0;91mfallo\e[0m]"
-        echo " Se ha producido un error importando el certificado al almacen de chrome."
+        echo " Se ha producido un error importando el certificado al nuevo almacen de chrome."
       fi
     else
       echo -en "[\e[0;91mfallo\e[0m]"
@@ -573,14 +747,17 @@ function _CONFIGURA_VARIABLES_ENTORNO(){
 
 ################ EXPORTS DE FUNCIONES ############################
 
+export _CONEXION
+export _ACTUALIZA_SOURCES
 export _COMPRUEBA_INSTALACION
+export _INSTALACION_OK
 export _CONFIGURA_WGET
 export _IMPORTA_CERTIFICADOS_CA
 export _IMPORTA_CERTIFICADO_PERSONAL
 export _REGISTRA_MIME_WEBDAV
 export _CONFIGURA_VARIABLES_ENTORNO
 export _INSTALA_JAVA
-export _MODIFICA_REPOSITORIO
+export _REPOSITORIOS
 export _INSTALA_CHROME_DESCARGA_CERTIFICADOS_CA
 export _INSTALA_AUTOFIRMA
 export _INSTALA_LIBNSS3_TOOLS
@@ -589,101 +766,51 @@ export _DESCARGA_CERTIFICADOS_CA
 
 ########################## MAIN ##################################
 
-if [ "$VERSION_UBUNTU" == "trusty" ];then
+_CONEXION
+
+if [ "$VERSION_UBUNTU" == "trusty"  -a  ${CONEXIONES[mulhacen]} == "true" ];then
   # Actualizamos grx-sources
-  echo -en "[\e[0;93maviso\e[0m]"
-  echo " Se va actualizar el repositorio GrX ..."
-  wget http://incidencias.dipgra.es/trusty-rep/pool/main/g/grx-sources/grx-sources_0.7.2016_all.deb -O /tmp/grx-sources_0.7.2016_all.deb
-  dpkg -i /tmp/grx-sources_0.7.2016_all.deb
-  apt update > /dev/null 2>&1
-  echo "Actualizando repositorios GrX ..."
-  if [ $? -ne 0 ];then
-    echo -en "[\e[0;91mfallo\e[0m]"
-    echo " Error actualizando repositorios GrX."
-  fi
+  _ACTUALIZA_SOURCES
 fi
 
 ####################### SOFTWARE #################################
 
-if [ "$VERSION_UBUNTU" == trusty ];then
-  PAQUETE="oracle-java8-installer"
-  _COMPRUEBA_INSTALACION $PAQUETE
-  JAVA=$?
-else
-  PAQUETE="openjdk-8-jdk"
-  _COMPRUEBA_INSTALACION $PAQUETE
-  JAVA=$?
-fi
-
-PAQUETE="libnss3-tools"
-_COMPRUEBA_INSTALACION $PAQUETE
-LIBNSS3_TOOLS=$?
-
-PAQUETE="autofirma"
-_COMPRUEBA_INSTALACION $PAQUETE
-AUTOFIRMA=$?
-
-PAQUETE="google-chrome-stable"
-_COMPRUEBA_INSTALACION $PAQUETE
-GOOGLE_CHROME=$?
+_COMPRUEBA_INSTALACION
 
 # Comprobamos repositorios java y google-chrome-stable
-
-if [ "$JAVA" == "false" -o "$LIBNSS3_TOOLS" == "false" -o "$GOOGLE_CHROME" == "false" -o "$AUTOFIRMA" == "false" ];then
+if [ ${SOFTWARE[$JAVA]} == "false" -o ${SOFTWARE[libnss3-tools]} == "false" -o ${SOFTWARE[google-chrome-stable]} == "false" -o ${SOFTWARE[autofirma]} == "false" ];then
   _CONFIGURA_WGET
-  if [ "$JAVA" == "false" ];then
+  # Comprobamos repositorios java y google-chrome-stable
+  if [ ${SOFTWARE[$JAVA]} == "false" ];then
     case "$VERSION_UBUNTU" in
       trusty)
-        REPOSITORIO="oracle-java8"
-        _MODIFICA_REPOSITORIO
+        _REPOSITORIOS ${REP_ORACLE[nombre]}
         ;;
       xenial)
-        REPOSITORIO="openjdk"
-        _MODIFICA_REPOSITORIO
+        _REPOSITORIOS ${REP_OPENJDK[nombre]}
         ;;
     esac
   fi
-  if [ "$GOOGLE_CHROME" == "false" ];then
-    REPOSITORIO="google-chrome-stable"
-    _MODIFICA_REPOSITORIO
+  if [ ${SOFTWARE[google-chrome-stable]} == "false" ];then
+    _REPOSITORIOS ${REP_CHROME[nombre]}
   fi
-  apt update > /dev/null 2>&1
-  echo "Actualizando repositorios ..."
-  if [ $? -ne 0 ];then
-    echo -en "[\e[0;91mfallo\e[0m]"
-    echo " Error actualizando repositorios."
-  fi
-
 fi
 
 # Instalamos el software faltante si lo hubiera
 
-if [ $JAVA -eq 0 ];then #hay que instalar java
+if [ ${SOFTWARE[$JAVA]} == "false" ];then #hay que instalar java
   _INSTALA_JAVA
-  PAQUETE="oracle-java8-installer"
-  _COMPRUEBA_INSTALACION
-  JAVA=$?
 fi
-if [ $LIBNSS3_TOOLS -eq 0 ];then #hay que instalar libnss3-tools
+if [ ${SOFTWARE[libnss3-tools]} == "false" ];then #hay que instalar libnss3-tools
   _INSTALA_LIBNSS3_TOOLS
-  PAQUETE="libnss3-tools"
-  _COMPRUEBA_INSTALACION
-  LIBNSS3_TOOLS=$?
 fi
-if [ $GOOGLE_CHROME -eq 0 ];then #hay que instalar google-chrome-stable
+if [ ${SOFTWARE[google-chrome-stable]} == "false" ];then #hay que instalar google-chrome-stable
   _INSTALA_CHROME
-  PAQUETE="google-chrome-stable"
-  _COMPRUEBA_INSTALACION $PAQUETE
-  GOOGLE_CHROME=$?
 fi
-
-if [ $AUTOFIRMA -eq 0 ];then #hay que instalar autofirma
+if [ ${SOFTWARE[autofirma]} == "false" ];then #hay que instalar autofirma
   _INSTALA_AUTOFIRMA
-  PAQUETE="autofirma"
-  _COMPRUEBA_INSTALACION $PAQUETE
-  AUTOFIRMA=$?
 fi
-if [ $JAVA -eq 0 -o $LIBNSS3_TOOLS -eq 0 -o $AUTOFIRMA -eq 0 ];then
+if [ ${SOFTWARE[$JAVA]} == "false" -o ${SOFTWARE[libnss3-tools]} == "false" -o ${SOFTWARE[google-chrome-stable]} == "false" -o ${SOFTWARE[autofirma]} == "false" ];then
   echo -en "[\e[0;91mfallo\e[0m]"
   echo " No se ha instalado todo el software necesario"
 else
@@ -708,12 +835,14 @@ echo -en "[\e[0;94mperfil firefox\e[0m]"
 echo " :"$PERFIL_FIREFOX
 
 # Importamos los certificados de CA y personal si procede
-_DESCARGA_CERTIFICADOS_CA
-if [ $? -eq 0 ];then
-  _IMPORTA_CERTIFICADOS_CA
-else
-  echo -en "[\e[0;91mfallo\e[0m]"
-  echo " No se pueden instalar los certificados CA."
+if [ ${CONEXIONES[mulhacen]} == "true" ];then
+  _DESCARGA_CERTIFICADOS_CA
+  if [ $? -eq 0 ];then
+    _IMPORTA_CERTIFICADOS_CA
+  else
+    echo -en "[\e[0;91mfallo\e[0m]"
+    echo " No se pueden instalar los certificados CA."
+  fi
 fi
 
 if [ "$CERTIFICADO_PERSONAL" != "" ];then
