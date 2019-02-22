@@ -1,6 +1,19 @@
 #!/bin/bash
 
-# Mientras el número de argumentos NO SEA 0
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+# PROCESA ARGUMENTOS
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -73,6 +86,7 @@ URL_AUTOFIRMA="https://estaticos.redsara.es/comunes/autofirma/currentversion/Aut
 ################ VARIABLES ##########################
 
 WGETRC_MOD="false"
+PROXY_MOD="false"
 PERFIL_FIREFOX=""
 MIME_WEBDAV="false"
 PROXY_USER=""
@@ -146,7 +160,7 @@ FILE_PROFILES_INI[line6]="IsRelative=1"
 FILE_PROFILES_INI[line7]="Path=dipgra.profile"
 FILE_PROFILES_INI[line8]="Default=1"
 
-############ EXPORTS ###################################
+############ EXPORT VARIABLES ###################################
 
 export CONEXIONES
 export SOFTWARE
@@ -157,6 +171,7 @@ export REP_CHROME
 export FILE_WGETRC
 export FILE_PROXY_APT
 export WGETRC_MOD
+export PROXY_MOD
 export WEBDAV
 export PERFIL_FIREFOX
 export VERSION_UBUNTU
@@ -261,7 +276,7 @@ function _INSTALACION_OK(){
 }
 
 function _CONFIGURA_PROXY_APT (){
-  if [ -f $FILE_PROXY_APT["nombre"] ];then
+  if [ ! -f $FILE_PROXY_APT["nombre"] ];then
     echo -en "[\e[0;93maviso\e[0m]"
     echo " No hay ningún proxy apt configurado."
     echo "Configurando proxy apt."
@@ -269,6 +284,24 @@ function _CONFIGURA_PROXY_APT (){
     chmod 644 $FILE_PROXY_APT["nombre"]
     echo $FILE_PROXY_APT["line1"] > $FILE_PROXY_APT["nombre"]
     echo $FILE_PROXY_APT["line2"] > $FILE_PROXY_APT["nombre"]
+  fi
+}
+
+function _CONFIGURA_00PROXY(){
+  if [ -f ${FILE_PROXY_APT[nombre]} -a "$PROXY_MOD" == "false" ];then
+    echo "Comentando 00proxy"
+    sed -i 's/.*/#&/' ${FILE_PROXY_APT[nombre]}
+    echo -en "[\e[0;92mok\e[0m]"
+    echo " Se ha comentado 00proxy"
+    PROXY_MOD="true"
+  elif [ "$PROXY_MOD" == "true" ];then
+    echo "Deshaciendo modificaciones en 00proxy"
+    sed -i 's/#//g' ${FILE_WGETRC[nombre]}
+    echo -en "[\e[0;92mok\e[0m]"
+    echo "Se han deshecho los cambios en 00proxy"
+  else
+    echo -en "[\e[0;93maviso\e[0m]"
+    echo " No hay ningún proxy apt configurado."
   fi
 }
 
@@ -301,12 +334,6 @@ function _CONFIGURA_WGET(){
           done
           echo -en "[\e[0;92mok\e[0m]"
           echo " Se ha configurado wget."
-          if [ -f ${FILE_PROXY_APT[nombre]} -a "$VERSION_UBUNTU" == "bionic" ];then
-            echo "Comentando 00proxy"
-            sed -i 's/.*/#&/' ${FILE_PROXY_APT[nombre]}
-            echo -en "[\e[0;92mok\e[0m]"
-            echo " Se ha comentado 00proxy"
-          fi
             WGETRC_MOD="true"
         fi
       ;;
@@ -315,12 +342,6 @@ function _CONFIGURA_WGET(){
           mv ${FILE_WGETRC[nombre]}.old ${FILE_WGETRC[nombre]}
           echo -en "[\e[0;92mok\e[0m]"
           echo " Se ha restablecido la configuración de wget"
-          if [ $VERSION_UBUNTU != "bionic" ];then
-            echo "Deshaciendo modificaciones en 00proxy"
-            sed -i 's/#//g' ${FILE_WGETRC[nombre]}
-            echo -en "[\e[0;92mok\e[0m]"
-            echo "Se han deshecho los cambios en 00proxy"
-          fi
         ;;
   esac
 }
@@ -752,6 +773,7 @@ export _ACTUALIZA_SOURCES
 export _COMPRUEBA_INSTALACION
 export _INSTALACION_OK
 export _CONFIGURA_WGET
+export _CONFIGURA_00PROXY
 export _IMPORTA_CERTIFICADOS_CA
 export _IMPORTA_CERTIFICADO_PERSONAL
 export _REGISTRA_MIME_WEBDAV
@@ -799,7 +821,13 @@ fi
 # Instalamos el software faltante si lo hubiera
 
 if [ ${SOFTWARE[$JAVA]} == "false" ];then #hay que instalar java
+  if [ "$VERSION_UBUNTU" == "trusty"  -a  ${CONEXIONES[mulhacen]} == "true" -a  ${CONEXIONES[proxy]} == "false" ];then
+    _CONFIGURA_00PROXY
+  fi
   _INSTALA_JAVA
+  if [ "$PROXY_MOD" == "true" ];then
+    _CONFIGURA_00PROXY
+  fi
 fi
 if [ ${SOFTWARE[libnss3-tools]} == "false" ];then #hay que instalar libnss3-tools
   _INSTALA_LIBNSS3_TOOLS
