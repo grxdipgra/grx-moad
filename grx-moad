@@ -1,6 +1,5 @@
 #!/bin/bash
 
-
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
 #    the Free Software Foundation, either version 3 of the License, or
@@ -13,7 +12,6 @@
 #
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <https://www.gnu.org/licenses/>.
-
 
 # PROCESA ARGUMENTOS
 while [ $# -ne 0 ]
@@ -106,29 +104,29 @@ CONEXIONES[internet]="false"
         ##### SOFTWARE #####
 
 declare -A SOFTWARE
-if [ "$VERSION_UBUNTU" == "trusty" ];then
-  SOFTWARE[oracle-java8-installer]="false"
-  JAVA="oracle-java8-installer"
-else
+#if [ "$VERSION_UBUNTU" == "trusty" ];then
+#  SOFTWARE[oracle-java8-installer]="false"
+#  JAVA="oracle-java8-installer"
+#else
   SOFTWARE[openjdk-8-jdk]="false"
   JAVA="openjdk-8-jdk"
-fi
+#fi
 SOFTWARE[libnss3-tools]="false"
 SOFTWARE[google-chrome-stable]="false"
 SOFTWARE[autofirma]="false"
 
        ##### REPOSITORIOS #####
-if [ "$VERSION_UBUNTU" == "trusty" ];then
-  declare -A REP_ORACLE
-  REP_ORACLE[nombre]="oracle-java8-installer"
-  REP_ORACLE[rep1]="deb http://ppa.launchpad.net/webupd8team/java/ubuntu trusty main"
-  REP_ORACLE[rep2]="deb-src http://ppa.launchpad.net/webupd8team/java/ubuntu trusty main"
-  REP_ORACLE[list]="/etc/apt/sources.list.d/webupd8team-ubuntu-java-trusty.list"
-else
+#if [ "$VERSION_UBUNTU" == "trusty" ];then
+#  declare -A REP_ORACLE
+#  REP_ORACLE[nombre]="oracle-java8-installer"
+#  REP_ORACLE[rep1]="deb http://ppa.launchpad.net/webupd8team/java/ubuntu trusty main"
+#  REP_ORACLE[rep2]="deb-src http://ppa.launchpad.net/webupd8team/java/ubuntu trusty main"
+#  REP_ORACLE[list]="/etc/apt/sources.list.d/webupd8team-ubuntu-java-trusty.list"
+#else
   declare -A REP_OPENJDK
   REP_OPENJDK[nombre]="openjdk-8-jdk"
   REP_OPENJDK[rep1]="ppa:openjdk-r/ppa"
-fi
+#fi
 
 declare -A REP_CHROME
 REP_CHROME[nombre]="google-chrome-stable"
@@ -167,7 +165,7 @@ FILE_PROFILES_INI[line8]="Default=1"
 export CONEXIONES
 export SOFTWARE
 export JAVA
-export REP_ORACLE
+#export REP_ORACLE
 export REP_OPENJDK
 export REP_CHROME
 export FILE_WGETRC
@@ -192,7 +190,8 @@ export PROXY_PASS
 function _CONEXION() {
   ## Comprobamos mulhacen
   echo "Comprobando la conexión a la red Mulhacen ..."
-  wget -T 10 -t 1 $URL_SOURCES_GRX -O /tmp/grx-sources_0.7.2016_all.deb > /dev/null 2>&1
+  #wget -T 10 -t 1 $URL_SOURCES_GRX -O /tmp/grx-sources_0.7.2016_all.deb > /dev/null 2>&1
+  ping -c 5 10.1.1.91 > /dev/null 2>&1
   if [ $? -eq 0 ];then
     CONEXIONES["mulhacen"]="true"
     echo -en "[\e[0;92mok\e[0m]"
@@ -234,24 +233,32 @@ function _ACTUALIZA_SOURCES() {
   # Actualizamos grx-sources
   echo -en "[\e[0;93maviso\e[0m]"
   echo " Se va actualizar el repositorio GrX ..."
-  wget $URL_SOURCES_GRX -O /tmp/grx-sources_0.7.2016_all.deb
-  dpkg -i /tmp/grx-sources_0.7.2016_all.deb
+  apt install --reinstall --assume-yes --force-yes grx-sources > /dev/null 2>&1
   apt update > /dev/null 2>&1
   echo "Actualizando repositorios GrX ..."
   if [ $? -ne 0 ];then
     echo -en "[\e[0;91mfallo\e[0m]"
     echo " Error actualizando repositorios GrX."
+    echo "Se intenta descargar e instalar el nuevo grx-sources."
+    wget $URL_SOURCES_GRX -O /tmp/grx-sources_0.7.2016_all.deb
+    dpkg -i /tmp/grx-sources_0.7.2016_all.deb
+    if [ $? -ne 0 ];then
+      echo -en "[\e[0;91mfallo\e[0m]"
+      echo " Error actualizando grx-sources."
+      echo " Debe realizarse la instalación manual de grx-sources."
+      exit 1
+    fi
   fi
 }
 
 function _COMPRUEBA_INSTALACION(){
   for i in "${!SOFTWARE[@]}"
   do
-    if [ "$VERSION_UBUNTU" == "trusty" -a "$i" == "openjdk-8-jdk" ];then
-      continue
-    elif [ "$VERSION_UBUNTU" != "trusty" -a "$i" == "oracle-java8-installer" ];then
-      continue
-    else
+    #if [ "$VERSION_UBUNTU" == "trusty" -a "$i" == "openjdk-8-jdk" ];then
+    #  continue
+    #elif [ "$VERSION_UBUNTU" != "trusty" -a "$i" == "oracle-java8-installer" ];then
+    #  continue
+    #else
       echo "Comprobando si $i esta presente"
       dpkg -s $i > /dev/null 2>&1
       if [ $? -eq 0 ];then # si esta instalado
@@ -263,7 +270,7 @@ function _COMPRUEBA_INSTALACION(){
         echo " $i no esta presente"
         SOFTWARE[$i]="false"
       fi
-    fi
+    #fi
   done
 }
 
@@ -298,7 +305,7 @@ function _CONFIGURA_00PROXY(){
     PROXY_MOD="true"
   elif [ "$PROXY_MOD" == "true" ];then
     echo "Deshaciendo modificaciones en 00proxy"
-    sed -i 's/#//g' ${FILE_WGETRC[nombre]}
+    sed -i 's/#//g' ${FILE_PROXY_APT[nombre]}
     echo -en "[\e[0;92mok\e[0m]"
     echo "Se han deshecho los cambios en 00proxy"
   else
@@ -358,13 +365,13 @@ function _REPOSITORIOS(){
     file="/etc/apt/sources.list.d/"$file
     if [ -f $file ];then
       case "$1" in
-        oracle-java8-installer)
+        #oracle-java8-installer)
           # Comprobamos si existe el ppa de webupd8team
-          cat $file | grep "${REP_ORACLE[rep1]}" > /dev/null 2>&1
-          if [ $? -eq 0 ];then
-            EXISTE="true"
-          fi
-          ;;
+        #  cat $file | grep "${REP_ORACLE[rep1]}" > /dev/null 2>&1
+        #  if [ $? -eq 0 ];then
+        #    EXISTE="true"
+        #  fi
+        #  ;;
         openjdk-8-jdk)
           # Comprobamos si existe el ppa de openjdk
           cat $file | grep "${REP_OPENJDK[rep1]}" > /dev/null 2>&1
@@ -387,12 +394,12 @@ function _REPOSITORIOS(){
     echo " El repositorio de $1 no está configurado."
     echo "Configurando repositorio de $1 ..."
     case $1 in
-      oracle-java8-installer)
-        touch ${REP_ORACLE[list]}
-        echo ${REP_ORACLE[rep1]} >  ${REP_ORACLE[list]}
-        echo ${REP_ORACLE[rep2]} >> ${REP_ORACLE[list]}
-        #add-apt-repository ppa:webupd8team/java
-        ;;
+      #oracle-java8-installer)
+      #  touch ${REP_ORACLE[list]}
+      #  echo ${REP_ORACLE[rep1]} >  ${REP_ORACLE[list]}
+      #  echo ${REP_ORACLE[rep2]} >> ${REP_ORACLE[list]}
+      #  #add-apt-repository ppa:webupd8team/java
+      #  ;;
       openjdk-8-jdk)
         add-apt-repository ${REP_OPENJDK[rep1]}
         ;;
@@ -421,28 +428,31 @@ function _REPOSITORIOS(){
 
 function _INSTALA_JAVA(){
   echo " Instalando java para Ubuntu $VERSION_UBUNTU ..."
-  case $VERSION_UBUNTU in
-    trusty)
-      echo "Instalando oracle-java8-installer y oracle-java-set-default ..."
-      apt install oracle-java8-installer oracle-java8-set-default
-      _COMPRUEBA_INSTALACION
-      _INSTALACION_OK ${SOFTWARE[oracle-java8-installer]} "oracle-java-8-installer"
-      ;;
-    xenial)
+  #case $VERSION_UBUNTU in
+  #  trusty)
+  #    echo "Instalando oracle-java8-installer y oracle-java-set-default ..."
+  #    apt install oracle-java8-installer oracle-java8-set-default
+  #    _COMPRUEBA_INSTALACION
+  #    _INSTALACION_OK ${SOFTWARE[oracle-java8-installer]} "oracle-java-8-installer"
+  #    ;;
+  #  xenial)
       echo "Instalando openjdk-8-jdk ..."
       apt install --assume-yes openjdk-8-jdk
       apt install -f
       _COMPRUEBA_INSTALACION
+      if [ SOFTWARE[$i]="true" ] ; then
+        update-alternatives --set java  /usr/lib/jvm/java-8-openjdk-amd64/jre/bin/java
+      fi
       _INSTALACION_OK ${SOFTWARE[openjdk-8-jdk]} "openjdk-8-jdk"
-      ;;
-    bionic)
-      echo "Se instalará openjdk."
-      echo "Instalando openjdk-8-jdk ..."
-      apt install --assume-yes openjdk-8-jdk
-      apt install -f
-      _COMPRUEBA_INSTALACION
-      _INSTALACION_OK ${SOFTWARE[openjdk-8-jdk]} "openjdk-8-jdk"
-    esac
+  #    ;;
+  #  bionic)
+  #    echo "Se instalará openjdk."
+  #    echo "Instalando openjdk-8-jdk ..."
+  #    apt install --assume-yes openjdk-8-jdk
+  #    apt install -f
+  #    _COMPRUEBA_INSTALACION
+  #    _INSTALACION_OK ${SOFTWARE[openjdk-8-jdk]} "openjdk-8-jdk"
+  #  esac
 }
 
 function _INSTALA_LIBNSS3_TOOLS(){
@@ -656,7 +666,7 @@ function _IMPORTA_CERTIFICADO_PERSONAL(){
     if [ -f "$ARCHIVO" ];then
       echo "Se va a importar el certficado "$ARCHIVO
       pk12util -l $ARCHIVO -r -W ${PASS_CERTIFICADO}
-      if [ -f /home/$USUARIO/.mozilla/firefox/$PERFIL_FIREFOX/cert8.db ];then
+      if [ -f "/home/$USUARIO/.mozilla/firefox/$PERFIL_FIREFOX/cert8.db" ];then
         echo -en "[\e[0;93maviso\e[0m]"
         echo " Existe una base de datos antigua de certificados de firefox ... importando certificado personal"
         pk12util -i $ARCHIVO -d dbm:/home/$USUARIO/.mozilla/firefox/$PERFIL_FIREFOX -W ${PASS_CERTIFICADO}
@@ -806,14 +816,14 @@ if [ ${SOFTWARE[$JAVA]} == "false" -o ${SOFTWARE[libnss3-tools]} == "false" -o $
   _CONFIGURA_WGET
   # Comprobamos repositorios java y google-chrome-stable
   if [ ${SOFTWARE[$JAVA]} == "false" ];then
-    case "$VERSION_UBUNTU" in
-      trusty)
-        _REPOSITORIOS ${REP_ORACLE[nombre]}
-        ;;
-      xenial)
+    #case "$VERSION_UBUNTU" in
+    #  trusty)
+    #    _REPOSITORIOS ${REP_ORACLE[nombre]}
+    #    ;;
+    #  xenial)
         _REPOSITORIOS ${REP_OPENJDK[nombre]}
-        ;;
-    esac
+    #    ;;
+    #esac
   fi
   if [ ${SOFTWARE[google-chrome-stable]} == "false" ];then
     _REPOSITORIOS ${REP_CHROME[nombre]}
