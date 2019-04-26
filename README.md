@@ -29,4 +29,4 @@ Se suministra el paquete **grx-moad.deb** que deberá instalarse en el sistema. 
 
 **Sintaxis**
 
-*grx-moad -u usuario [-c] [ruta-del-certificado-personal] [-p] [contraseña-del-certificado]*
+*grx-moad -u usuario [-a] [ruta_certificados_CA] [-c] [ruta-del-certificado-personal] [-p] [contraseña-del-certificado]*
