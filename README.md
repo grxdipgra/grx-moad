@@ -4,7 +4,7 @@ Herramienta de configuración de equipos linux para el uso de aplicaciones de ad
 
 **Software necesario:**
 
-* Open JDK (xenyal - bionic) u Oracle JDK (trusty) para la aplicación autofirma.
+* Open JDK para la aplicación autofirma.
 
 * libnss3-tools para el uso de las herramientas **certutil** y **pk12util** de importación y exportación de certificados electrónicos a los almacenes de certificados de mozilla y chrome.
 
@@ -19,7 +19,7 @@ Herramienta de configuración de equipos linux para el uso de aplicaciones de ad
 
 * Inicializa los perfiles de usuario de los navegadores y los almacenes de certificados si no existen.
 
-* Instala un certificado personal en dichos almacenes si se provee en directorio vacio.
+* Instala un certificado personal en dichos almacenes si se provee en directorio vacío.
 
 **Configuración de la conexión a través de proxy:**
 
